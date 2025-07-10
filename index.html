@@ -3,12 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <style>
+  <title>Hand Detection</title>
+  <!-- TensorFlow.js + Handpose -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
 
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: black;
+    }
+    #video, #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    h1 {
+      position: absolute;
+      z-index: 2;
+      color: white;
+      padding: 10px;
+      font-family: sans-serif;
+    }
   </style>
 </head>
 <body>
-  <h1>박영현 븅신ㅋㅋ</h1>
+  <h1>Hand Detection</h1>
+  <video id="video" width="640" height="480" autoplay playsinline></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: false,
+      });
+      video.srcObject = stream;
+
+      return new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play();
+          resolve(video);
+        };
+      });
+    }
+
+    async function main() {
+      console.log("👋 Setting up camera...");
+      await setupCamera();
+      console.log("📷 Camera ready");
+
+      const model = await handpose.load();
+      console.log("✅ Handpose model loaded");
+
+      async function detectHands() {
+        const predictions = await model.estimateHands(video);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        console.log("🧠 예측값:", predictions);
+
+        if (predictions.length > 0) {
+          console.log("✋ 손 감지됨");
+
+          predictions.forEach(hand => {
+            hand.landmarks.forEach(([x, y], i) => {
+              ctx.beginPath();
+              ctx.arc(x, y, 6, 0, 2 * Math.PI);
+              ctx.fillStyle = 'red';
+              ctx.fill();
+
+              // 포인트 번호 라벨링 (선택사항)
+              ctx.fillStyle = 'white';
+              ctx.font = '10px sans-serif';
+              ctx.fillText(i, x + 5, y - 5);
+            });
+          });
+        } else {
+          console.log("🫥 손 없음");
+        }
+
+        requestAnimationFrame(detectHands);
+      }
+
+      detectHands();
+    }
+
+    // WebGL 설정: 버전 1로 제한하여 호환성 유지
+    tf.setBackend('webgl').then(() => {
+      tf.env().set('WEBGL_VERSION', 1);
+      main();
+    });
+  </script>
 </body>
 </html>
